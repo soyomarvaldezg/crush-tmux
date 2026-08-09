@@ -1,14 +1,13 @@
 package main
 
-// Attention-only Tokyo Night rendering. Only states that need you are shown:
-// working (blue), blocked (orange), done (green). Seen/hidden stay out of the
-// bar so it reads clean when nothing needs attention.
+// Attention-only Tokyo Night rendering. The focused pane is excluded from the
+// bar (you're already looking at it). All counts are collapsed: ● N, ✋ N, ✓ N.
+// Max 3 segments, always fits.
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 )
 
@@ -45,13 +44,17 @@ func renderStatus() {
 		return
 	}
 
+	focusedCwd, _ := focusedCwd()
+
 	working := 0
-	blocked := map[string]bool{}
-	done := map[string]bool{}
+	blocked := 0
+	done := 0
 	changed := false
 
 	for _, p := range panes {
-		label := baseName(p.Cwd) // project folder name; unique per project
+		if p.Cwd == focusedCwd {
+			continue
+		}
 		before := st.Lanes[p.Cwd]
 		state := st.classify(p)
 		after := st.Lanes[p.Cwd]
@@ -62,9 +65,9 @@ func renderStatus() {
 		case StateWorking:
 			working++
 		case StateBlocked:
-			blocked[label] = true
+			blocked++
 		case StateDone:
-			done[label] = true
+			done++
 		}
 	}
 	if changed {
@@ -75,11 +78,11 @@ func renderStatus() {
 	if working > 0 {
 		fmt.Fprintf(&b, "%s%s %d%s  ", colWorking, glyphWorking, working, colReset)
 	}
-	for _, name := range sortedKeys(blocked) {
-		fmt.Fprintf(&b, "%s%s %s%s  ", colBlocked, glyphBlocked, name, colReset)
+	if blocked > 0 {
+		fmt.Fprintf(&b, "%s%s %d%s  ", colBlocked, glyphBlocked, blocked, colReset)
 	}
-	for _, name := range sortedKeys(done) {
-		fmt.Fprintf(&b, "%s%s %s%s  ", colDone, glyphDone, name, colReset)
+	if done > 0 {
+		fmt.Fprintf(&b, "%s%s %d%s  ", colDone, glyphDone, done, colReset)
 	}
 
 	out := strings.TrimSpace(b.String())
@@ -91,14 +94,6 @@ func renderStatus() {
 	fmt.Print(out)
 }
 
-func sortedKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
 
 // focusedCwd returns the working dir of the truly-focused pane.
 func focusedCwd() (string, error) {

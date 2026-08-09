@@ -1,10 +1,11 @@
 package main
 
 // State machine. Signals, in priority order:
-//   1. footer "Allow/Deny"            -> blocked  (only the footer can see this)
-//   2. footer "esc cancel"            -> working  (a turn is actively running)
-//   3. idle footer + watermark moved  -> working  (activity in progress)
-//   4. idle footer + watermark stable -> done if unseen, seen if viewed
+//   1. footer "Allow/Deny" / "Requesting permission..." -> blocked
+//   2. footer spinner line ("> " prefix + "..." suffix) -> working
+//   3. watermark moved + idle footer  -> done (finished, unseen)
+//      watermark moved + ambiguous footer -> working
+//   4. watermark stable -> done if unseen, seen if viewed
 //
 // The footer tells us busy-vs-idle (watermark alone cannot: a working agent
 // pauses between tool calls and looks identical to a done one). The watermark
@@ -73,19 +74,30 @@ func scanFooter(paneID string) string {
 	if err != nil {
 		return ""
 	}
-	return lastLines(string(out), 6)
+	return lastLines(string(out), 15)
 }
 
 func isBlocked(footer string) bool {
 	return strings.Contains(footer, "Allow for Session") ||
-		(strings.Contains(footer, "Allow") && strings.Contains(footer, "Deny") && strings.Contains(footer, "choose"))
+		(strings.Contains(footer, "Allow") && strings.Contains(footer, "Deny") && strings.Contains(footer, "choose")) ||
+		strings.Contains(footer, "Requesting permission...")
 }
 
 func isWorkingFooter(footer string) bool {
-	return strings.Contains(footer, "esc cancel") ||
-		strings.Contains(footer, "Processing...") ||
-		strings.Contains(footer, "> Working!") ||
-		strings.Contains(footer, "Waiting for tool response")
+	// Only the animated spinner line ("> Brrrrr...", "> Working!", etc.) is a
+	// reliable working signal. "esc cancel" and "Waiting for tool response" are
+	// always present in the idle/footer area or linger in scrollback, so they
+	// would misclassify idle and blocked panes as working.
+	for _, line := range strings.Split(footer, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "> ") && strings.HasSuffix(trimmed, "...") {
+			return true
+		}
+		if strings.Contains(trimmed, "> Working!") {
+			return true
+		}
+	}
+	return false
 }
 
 func isIdleFooter(footer string) bool {
@@ -133,20 +145,25 @@ func (s *store) classify(p Pane) State {
 	}
 
 	// 3 & 4. Footer idle (or unreadable): use the watermark for done/seen.
+	// If the footer is clearly idle, trust it over the watermark — a higher
+	// watermark just means output arrived earlier, not that the agent is busy now.
 	wm, err := latestWatermark(p.Cwd)
 	if err != nil {
 		wm = lane.Watermark // DB hiccup: keep last known
 	}
 	if lane.Watermark < 0 {
-		// First sighting of an idle agent: seed quietly as seen so a fresh start
-		// doesn't flash everything as "done". It surfaces only on real new activity.
 		lane.Watermark = wm
 		lane.Viewed = true
 		return StateSeen
 	}
 	if wm > lane.Watermark {
-		// New output arrived since we last looked: it's active again.
 		lane.Watermark = wm
+		if isIdleFooter(footer) {
+			// Watermark moved but footer says idle: agent finished, mark done/unseen.
+			lane.Viewed = false
+			return StateDone
+		}
+		// Footer ambiguous (not idle, not working, not blocked): treat as working.
 		lane.Viewed = false
 		return StateWorking
 	}
