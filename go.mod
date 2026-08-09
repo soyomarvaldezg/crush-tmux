@@ -1,4 +1,4 @@
-module github.com/omarvaldez/crush-tmux
+module github.com/soyomarvaldezg/crush-tmux
 
 go 1.26
 
