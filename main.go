@@ -26,6 +26,16 @@ const (
 	glyphSeen    = "○"          // U+25CB e2 97 8b
 )
 
+// Truecolor ANSI escapes for fzf (Tokyo Night Storm). tmux's #[...] syntax is
+// meaningless to fzf, which expects real ESC[38;2;r;g;bm sequences.
+const (
+	ansiBlue   = "\x1b[38;2;122;162;247m" // #7aa2f7
+	ansiOrange = "\x1b[38;2;224;175;104m" // #e0af68
+	ansiGreen  = "\x1b[38;2;158;206;106m" // #9ece6a
+	ansiGrey   = "\x1b[38;2;86;95;137m"   // #565f89
+	ansiReset  = "\x1b[0m"
+)
+
 // renderStatus prints the status-right segment.
 func renderStatus() {
 	st := loadStore()
@@ -62,13 +72,13 @@ func renderStatus() {
 
 	var b strings.Builder
 	if working > 0 {
-		fmt.Fprintf(&b, "%s%s%d%s ", colWorking, glyphWorking, working, colReset)
+		fmt.Fprintf(&b, "%s%s %d%s  ", colWorking, glyphWorking, working, colReset)
 	}
 	for _, name := range sortedKeys(blocked) {
-		fmt.Fprintf(&b, "%s%s%s%s ", colBlocked, glyphBlocked, name, colReset)
+		fmt.Fprintf(&b, "%s%s %s%s  ", colBlocked, glyphBlocked, name, colReset)
 	}
 	for _, name := range sortedKeys(done) {
-		fmt.Fprintf(&b, "%s%s%s%s ", colDone, glyphDone, name, colReset)
+		fmt.Fprintf(&b, "%s%s %s%s  ", colDone, glyphDone, name, colReset)
 	}
 
 	out := strings.TrimSpace(b.String())
@@ -113,6 +123,10 @@ func markViewedCmd() {
 }
 
 // renderSwitch prints fzf rows: paneID<TAB>glyph label location project.
+// renderSwitch prints fzf rows: paneID<TAB>glyph label location project.
+// NOTE: fzf renders ANSI escape codes (real \x1b[... sequences), NOT tmux's
+// #[...] syntax — that only works inside tmux's own status bar. So this uses
+// truecolor ANSI escapes matched to the Tokyo Night palette.
 func renderSwitch() {
 	st := loadStore()
 	panes, err := discoverPanes()
@@ -127,22 +141,22 @@ func renderSwitch() {
 		if before == nil || *before != *after {
 			changed = true
 		}
-		var glyph, color string
+		var glyph, ansi string
 		switch state {
 		case StateWorking:
-			glyph, color = glyphWorking, colWorking
+			glyph, ansi = glyphWorking, ansiBlue
 		case StateBlocked:
-			glyph, color = glyphBlocked, colBlocked
+			glyph, ansi = glyphBlocked, ansiOrange
 		case StateDone:
-			glyph, color = glyphDone, colDone
+			glyph, ansi = glyphDone, ansiGreen
 		case StateSeen:
-			glyph, color = glyphSeen, "#[fg=colour244]"
+			glyph, ansi = glyphSeen, ansiGrey
 		default:
-			glyph, color = "?", "#[fg=colour244]"
+			glyph, ansi = "?", ansiGrey
 		}
 		proj := baseName(p.Cwd)
 		loc := windowLoc(p.ID)
-		fmt.Printf("%s\t%s%s%s %s  %s  %s\n", p.ID, color, glyph, colReset, p.Session, loc, proj)
+		fmt.Printf("%s\t%s%s%s %s  %s  %s\n", p.ID, ansi, glyph, ansiReset, p.Session, loc, proj)
 	}
 	if changed {
 		st.save()
