@@ -51,9 +51,10 @@ func renderStatus() {
 	changed := false
 
 	for _, p := range panes {
-		before := st.Lanes[p.Session]
+		label := baseName(p.Cwd) // project folder name; unique per project
+		before := st.Lanes[p.Cwd]
 		state := st.classify(p)
-		after := st.Lanes[p.Session]
+		after := st.Lanes[p.Cwd]
 		if before == nil || *before != *after {
 			changed = true
 		}
@@ -61,9 +62,9 @@ func renderStatus() {
 		case StateWorking:
 			working++
 		case StateBlocked:
-			blocked[p.Session] = true
+			blocked[label] = true
 		case StateDone:
-			done[p.Session] = true
+			done[label] = true
 		}
 	}
 	if changed {
@@ -99,11 +100,11 @@ func sortedKeys(m map[string]bool) []string {
 	return keys
 }
 
-// focusedSession returns the tmux session of the truly-focused pane.
-func focusedSession() (string, error) {
+// focusedCwd returns the working dir of the truly-focused pane.
+func focusedCwd() (string, error) {
 	out, err := exec.Command("tmux", "list-panes", "-a",
 		"-f", "#{&&:#{pane_active},#{&&:#{window_active},#{session_attached}}}",
-		"-F", "#{session_name}").Output()
+		"-F", "#{pane_current_path}").Output()
 	if err != nil {
 		return "", err
 	}
@@ -111,14 +112,14 @@ func focusedSession() (string, error) {
 	return strings.TrimSpace(line), nil
 }
 
-// markViewedCmd collapses done->seen for the focused session.
+// markViewedCmd collapses done->seen for the focused pane's project lane.
 func markViewedCmd() {
-	sess, err := focusedSession()
-	if err != nil || sess == "" {
+	cwd, err := focusedCwd()
+	if err != nil || cwd == "" {
 		return
 	}
 	st := loadStore()
-	st.markViewed(sess)
+	st.markViewed(cwd)
 	st.save()
 }
 
@@ -135,9 +136,9 @@ func renderSwitch() {
 	}
 	changed := false
 	for _, p := range panes {
-		before := st.Lanes[p.Session]
+		before := st.Lanes[p.Cwd]
 		state := st.classify(p)
-		after := st.Lanes[p.Session]
+		after := st.Lanes[p.Cwd]
 		if before == nil || *before != *after {
 			changed = true
 		}
