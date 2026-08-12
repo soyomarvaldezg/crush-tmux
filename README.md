@@ -5,6 +5,20 @@ CLI instance in your tmux status bar, with an fzf switcher to jump to the one th
 needs you. Built for a dotbar-themed tmux: it owns only the (otherwise empty)
 `status-right` and never touches the theme.
 
+## Screenshots
+
+**Status bar** — collapsed counts in `status-right`. Blue `●` = working in
+other panes, orange `✋` = blocked on Allow/Deny, green `✓` = done but unseen.
+Focused pane is excluded; when nothing needs attention the bar reads
+`· crush idle`.
+
+![Status bar showing ● 1 ✋ 2 ✓ 1](docs/status-bar-states.png)
+
+**Switcher popup** (`prefix + a`) — every live instance with per-pane glyph,
+tmux session name, window.pane location, and project folder. Select to jump.
+
+![fzf switcher popup listing instances with ● ✋ ✓ ○ glyphs](docs/switcher-popup.png)
+
 ## Why
 
 Multi-agent attention management tools (agent-deck, ccmux, tmux-agent-status,
