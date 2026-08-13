@@ -32,21 +32,16 @@ This instead reads what Crush actually is:
 go install github.com/soyomarvaldezg/crush-tmux@latest
 ```
 
-Then in `~/.config/tmux/tmux.conf` (after TPM + theme overrides):
+Then add one line to your `~/.config/tmux/tmux.conf`:
 
 ```tmux
-set -g focus-events on
-set -g status-right "#(/path/to/crush-tmux status)"
-set -g status-right-length 120
-set -g status-interval 2
-
-set-hook -g after-select-pane      'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g after-select-window    'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g client-session-changed 'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g client-focus-in        'run-shell -b "/path/to/crush-tmux mark-viewed"'
-
-bind-key a display-popup -E -w 80% -h 60% "/path/to/crush-switcher.sh"
+run-shell "tmux source-file $(crush-tmux config)"
 ```
+
+This installs the fzf switcher script to `~/.config/tmux/crush/` and prints
+the full tmux configuration (status bar, focus hooks, key binding) with the
+correct binary path. Reload tmux (`prefix + r` or `tmux source ~/.config/tmux/tmux.conf`)
+and you're done.
 
 ## States (attention-only)
 
@@ -115,6 +110,9 @@ latency impact.
   one and seen (`○`) ones.
 - `crush-tmux mark-viewed` — focus hook; collapses done→seen for the focused
   pane's project lane.
+- `crush-tmux config` — installs the fzf switcher script to
+  `~/.config/tmux/crush/` and prints the tmux configuration snippet with the
+  correct binary path. Use with `run-shell "tmux source-file $(crush-tmux config)"`.
 
 State persists in `~/.config/tmux/crush/crush-tmux-state.json` so the done/seen
 distinction survives across ticks.

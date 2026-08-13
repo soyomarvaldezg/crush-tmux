@@ -187,8 +187,10 @@ func main() {
 		renderSwitch()
 	case "mark-viewed":
 		markViewedCmd()
+	case "config":
+		configCmd()
 	default:
-		fmt.Fprintf(os.Stderr, "usage: crush-tmux [status|switch|mark-viewed]\n")
+		fmt.Fprintf(os.Stderr, "usage: crush-tmux [status|switch|mark-viewed|config]\n")
 		os.Exit(2)
 	}
 }
