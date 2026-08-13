@@ -1,23 +1,10 @@
 # crush-tmux
 
-A single Go binary that surfaces every live [Crush](https://github.com/charmbracelet/crush)
-CLI instance in your tmux status bar, with an fzf switcher to jump to the one that
-needs you. Built for a dotbar-themed tmux: it owns only the (otherwise empty)
-`status-right` and never touches the theme.
-
-## Screenshots
-
-**Status bar** — collapsed counts in `status-right`. Blue `●` = working in
-other panes, orange `✋` = blocked on Allow/Deny, green `✓` = done but unseen.
-Focused pane is excluded; when nothing needs attention the bar reads
-`· crush idle`.
-
-![Status bar showing ● 1 ✋ 2 ✓ 1](docs/status-bar-states.png)
-
-**Switcher popup** (`prefix + a`) — every live instance with per-pane glyph,
-tmux session name, window.pane location, and project folder. Select to jump.
+[Crush](https://github.com/charmbracelet/crush) management for tmux. Manage multiple Crush instances with at-a-glance status indicators and fast instance switching.
 
 ![fzf switcher popup listing instances with ● ✋ ✓ ○ glyphs](docs/switcher-popup.png)
+
+Built for a dotbar-themed tmux that owns only the (otherwise empty) `status-right` and never touches the theme.
 
 ## Why
 
@@ -37,6 +24,29 @@ This instead reads what Crush actually is:
    Combined with the footer scan to tell busy from idle.
 3. **Is it blocked** — a footer scan for the `Allow/Deny` permission barrier
    (and `Requesting permission...`), the one thing the DB cannot see.
+
+
+## Install
+
+```sh
+go install github.com/soyomarvaldezg/crush-tmux@latest
+```
+
+Then in `~/.config/tmux/tmux.conf` (after TPM + theme overrides):
+
+```tmux
+set -g focus-events on
+set -g status-right "#(/path/to/crush-tmux status)"
+set -g status-right-length 120
+set -g status-interval 2
+
+set-hook -g after-select-pane      'run-shell -b "/path/to/crush-tmux mark-viewed"'
+set-hook -g after-select-window    'run-shell -b "/path/to/crush-tmux mark-viewed"'
+set-hook -g client-session-changed 'run-shell -b "/path/to/crush-tmux mark-viewed"'
+set-hook -g client-focus-in        'run-shell -b "/path/to/crush-tmux mark-viewed"'
+
+bind-key a display-popup -E -w 80% -h 60% "/path/to/crush-switcher.sh"
+```
 
 ## States (attention-only)
 
@@ -95,28 +105,6 @@ itself refuse any write or state-changing pragma. The binary therefore
 **cannot** write to a crush database — read-only is enforced at open, not by
 convention. Readers never block Crush's writer, so there is no concurrency or
 latency impact.
-
-## Install
-
-```sh
-go build -o crush-tmux .
-```
-
-Then in `~/.config/tmux/tmux.conf` (after TPM + theme overrides):
-
-```tmux
-set -g focus-events on
-set -g status-right "#(/path/to/crush-tmux status)"
-set -g status-right-length 120
-set -g status-interval 2
-
-set-hook -g after-select-pane      'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g after-select-window    'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g client-session-changed 'run-shell -b "/path/to/crush-tmux mark-viewed"'
-set-hook -g client-focus-in        'run-shell -b "/path/to/crush-tmux mark-viewed"'
-
-bind-key a display-popup -E -w 80% -h 60% "/path/to/crush-switcher.sh"
-```
 
 ## Subcommands
 
